@@ -31,9 +31,8 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Internal Agent Tracking and Rules
+# Internal Agent Tracking
 odd/
-AGENTS.MD
 
 # Operating System files
 .DS_Store
