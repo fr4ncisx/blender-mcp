@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blender 2:1 Dimetric Isometric Interactive Avatar Viewer</title>
+  <style>
+    :root {
+      --bg-primary: #0a0c10;
+      --bg-panel: rgba(16, 20, 28, 0.85);
+      --border-panel: rgba(212, 175, 55, 0.35);
+      --accent-gold: #d4af37;
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff007f;
+      --accent-emerald: #05472a;
+      --text-main: #f0f4f8;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow-x: hidden;
+      padding: 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(212, 175, 55, 0.1);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--accent-gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-iso {
+      background: linear-gradient(135deg, var(--accent-magenta), var(--accent-cyan));
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: var(--text-main);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    button.active {
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(255, 0, 127, 0.25));
+      border-color: var(--accent-gold);
+      color: #ffffff;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      background: radial-gradient(circle at center, #151922 0%, #08090d 100%);
+      border: 1px solid var(--border-panel);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(0, 240, 255, 0.03);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      display: block;
+      cursor: crosshair;
+      image-rendering: pixelated;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: rgba(10, 12, 16, 0.88);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 8px;
+      padding: 8px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hud-values {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.78rem;
+      color: var(--accent-cyan);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hud-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+    }
+
+    .hud-status-tag {
+      font-weight: 800;
+      color: var(--accent-magenta);
+    }
+
+    .instructions-card {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 12, 16, 0.88);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.76rem;
+      color: var(--text-main);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-title">
+      <span>BLENDER ISO MCP</span>
+      <span class="badge-iso">2:1 Dimetric Playable</span>
+    </div>
+    <div class="controls-bar">
+      <button id="btn-room-artdeco" class="active">Art Déco Lounge (16x16)</button>
+      <button id="btn-room-habbo">Habbo Bar (19x19)</button>
+      <button id="btn-palette-cyber">Cyberpunk</button>
+      <button id="btn-palette-gold">Gold & Velvet</button>
+      <button id="btn-palette-emerald">Emerald VIP</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="canvas-container">
+      <canvas id="iso-canvas" width="1024" height="640"></canvas>
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">Telemetry & Depth Sorting</div>
+          <div class="hud-values">
+            <div class="hud-item"><span class="hud-label">Grid:</span><span id="hud-grid">X: 8.00, Y: 8.00</span></div>
+            <div class="hud-item"><span class="hud-label">Screen:</span><span id="hud-screen">X: 512, Y: 430</span></div>
+            <div class="hud-item"><span class="hud-label">Elev:</span><span id="hud-elevation">0.00</span></div>
+            <div class="hud-item"><span class="hud-label">Depth:</span><span id="hud-depth">430</span></div>
+          </div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">Navigation & Orientation</div>
+          <div class="hud-values">
+            <div class="hud-item"><span class="hud-label">Dir:</span><span id="hud-direction">0 (45.0°)</span></div>
+            <div class="hud-item"><span class="hud-label">Heading:</span><span id="hud-heading">SE</span></div>
+            <div class="hud-item"><span class="hud-label">Status:</span><span id="hud-status" class="hud-status-tag">IDLE</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="instructions-card">
+        <div class="pulse-dot"></div>
+        <span>Click anywhere to navigate with dynamic 2:1 depth sorting & path trajectory</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('iso-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const hudGrid = document.getElementById('hud-grid');
+    const hudScreen = document.getElementById('hud-screen');
+    const hudElevation = document.getElementById('hud-elevation');
+    const hudDepth = document.getElementById('hud-depth');
+    const hudDirection = document.getElementById('hud-direction');
+    const hudHeading = document.getElementById('hud-heading');
+    const hudStatus = document.getElementById('hud-status');
+
+    const btnArtDeco = document.getElementById('btn-room-artdeco');
+    const btnHabbo = document.getElementById('btn-room-habbo');
+    const btnCyber = document.getElementById('btn-palette-cyber');
+    const btnGold = document.getElementById('btn-palette-gold');
+    const btnEmerald = document.getElementById('btn-palette-emerald');
+
+    const TILE_WIDTH = 48;
+    const TILE_HEIGHT = 24;
+
+    let originX = 512;
+    let originY = 160;
+
+    let roomWidth = 16;
+    let roomDepth = 16;
+    let currentRoomImage = null;
+    let roomImagePath = '../../output/blender/rooms/art_deco_lounge.png';
+
+    const avatar = {
+      gridX: 8.0,
+      gridY: 8.0,
+      targetGridX: 8.0,
+      targetGridY: 8.0,
+      elevation: 0.0,
+      speed: 3.6,
+      directionIndex: 0,
+      isMoving: false,
+      scale: 1.0,
+      palette: {
+        skinColor: '#fcd5b4',
+        hairColor: '#4a2c11',
+        shirtColor: '#00f0ff',
+        pantsColor: '#1e293b',
+        shoesColor: '#111827'
+      }
+    };
+
+    const avatarSprites = [];
+    for (let i = 0; i < 8; i++) {
+      const img = new Image();
+      img.src = `../../output/blender/turnarounds/avatar_dir_${i}.png`;
+      avatarSprites.push(img);
+    }
+
+    const furnitureEntities = [
+      { id: 'curved_sofa_1', gridX: 2.0, gridY: 14.0, elevation: 0.0, width: 2.0, depth: 2.0, color: '#ff007f', label: 'Curved Velvet Sofa' },
+      { id: 'bar_counter_1', gridX: 3.0, gridY: 12.0, elevation: 0.0, width: 3.0, depth: 0.8, color: '#d4af37', label: 'Art Déco Bar' },
+      { id: 'dj_booth_1', gridX: 8.0, gridY: 14.0, elevation: 0.0, width: 2.0, depth: 1.5, color: '#00f0ff', label: 'Neon DJ Booth' },
+      { id: 'vip_table_1', gridX: 12.0, gridY: 12.0, elevation: 0.0, width: 1.5, depth: 1.5, color: '#d4af37', label: 'VIP Lounge Table' },
+      { id: 'sofa_double_1', gridX: 12.0, gridY: 13.5, elevation: 0.0, width: 2.0, depth: 1.0, color: '#ff007f', label: 'Magenta Sofa' },
+      { id: 'center_sofa_1', gridX: 5.0, gridY: 6.0, elevation: 0.0, width: 2.0, depth: 1.5, color: '#05472a', label: 'Emerald Booth' },
+      { id: 'center_sofa_2', gridX: 10.0, gridY: 6.0, elevation: 0.0, width: 2.0, depth: 1.5, color: '#05472a', label: 'Emerald Booth' },
+      { id: 'entrance_portal', gridX: 8.0, gridY: 1.0, elevation: 0.0, width: 1.5, depth: 1.5, color: '#d4af37', label: 'Grand Portal' }
+    ];
+
+    function calculateIsometricDepth(screenX, screenY, elevation) {
+      return screenY + ((elevation || 0) * 1000);
+    }
+
+    function gridToScreen(gx, gy, tw, th, ox, oy) {
+      const hw = tw / 2;
+      const hh = th / 2;
+      const screenX = ox + (gx - gy) * hw;
+      const screenY = oy + (gx + gy) * hh;
+      return { screenX, screenY };
+    }
+
+    function screenToGrid(sx, sy, tw, th, ox, oy) {
+      const hw = tw / 2;
+      const hh = th / 2;
+      const dx = (sx - ox) / hw;
+      const dy = (sy - oy) / hh;
+      const gridX = (dx + dy) / 2;
+      const gridY = (dy - dx) / 2;
+      return { gridX, gridY };
+    }
+
+    function getDirectionYaw(dirIndex, totalDirs) {
+      const step = 360 / totalDirs;
+      return (45 + dirIndex * step) % 360;
+    }
+
+    function computeDirectionIndex(dx, dy) {
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+        return avatar.directionIndex;
+      }
+      const angleRad = Math.atan2(dy, dx);
+      let angleDeg = (angleRad * 180 / Math.PI + 360) % 360;
+
+      if (angleDeg >= 337.5 || angleDeg < 22.5) return 0;
+      if (angleDeg >= 22.5 && angleDeg < 67.5) return 1;
+      if (angleDeg >= 67.5 && angleDeg < 112.5) return 2;
+      if (angleDeg >= 112.5 && angleDeg < 157.5) return 3;
+      if (angleDeg >= 157.5 && angleDeg < 202.5) return 4;
+      if (angleDeg >= 202.5 && angleDeg < 247.5) return 5;
+      if (angleDeg >= 247.5 && angleDeg < 292.5) return 6;
+      return 7;
+    }
+
+    function loadRoomImage(path) {
+      const img = new Image();
+      img.onload = () => {
+        currentRoomImage = img;
+      };
+      img.onerror = () => {
+        currentRoomImage = null;
+      };
+      img.src = path;
+    }
+
+    loadRoomImage(roomImagePath);
+
+    btnArtDeco.addEventListener('click', () => {
+      btnArtDeco.classList.add('active');
+      btnHabbo.classList.remove('active');
+      roomWidth = 16;
+      roomDepth = 16;
+      roomImagePath = '../../output/blender/rooms/art_deco_lounge.png';
+      loadRoomImage(roomImagePath);
+    });
+
+    btnHabbo.addEventListener('click', () => {
+      btnHabbo.classList.add('active');
+      btnArtDeco.classList.remove('active');
+      roomWidth = 19;
+      roomDepth = 19;
+      roomImagePath = '../../output/blender/rooms/habbo_rooftop_bar.png';
+      loadRoomImage(roomImagePath);
+    });
+
+    btnCyber.addEventListener('click', () => {
+      avatar.palette.shirtColor = '#00f0ff';
+      avatar.palette.pantsColor = '#1e293b';
+      avatar.palette.hairColor = '#4a2c11';
+      avatar.palette.shoesColor = '#111827';
+      btnCyber.classList.add('active');
+      btnGold.classList.remove('active');
+      btnEmerald.classList.remove('active');
+    });
+
+    btnGold.addEventListener('click', () => {
+      avatar.palette.shirtColor = '#d4af37';
+      avatar.palette.pantsColor = '#1a1a1a';
+      avatar.palette.hairColor = '#2b1d0c';
+      avatar.palette.shoesColor = '#d4af37';
+      btnGold.classList.add('active');
+      btnCyber.classList.remove('active');
+      btnEmerald.classList.remove('active');
+    });
+
+    btnEmerald.addEventListener('click', () => {
+      avatar.palette.shirtColor = '#05472a';
+      avatar.palette.pantsColor = '#ff007f';
+      avatar.palette.hairColor = '#1a1a1a';
+      avatar.palette.shoesColor = '#d4af37';
+      btnEmerald.classList.add('active');
+      btnCyber.classList.remove('active');
+      btnGold.classList.remove('active');
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      const gridPos = screenToGrid(clickX, clickY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+      const clampedX = Math.max(0.5, Math.min(roomWidth - 0.5, gridPos.gridX));
+      const clampedY = Math.max(0.5, Math.min(roomDepth - 0.5, gridPos.gridY));
+
+      avatar.targetGridX = clampedX;
+      avatar.targetGridY = clampedY;
+      avatar.isMoving = true;
+    });
+
+    window.addEventListener('keydown', (e) => {
+      let stepX = 0;
+      let stepY = 0;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { stepX -= 0.5; stepY -= 0.5; }
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { stepX += 0.5; stepY += 0.5; }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { stepX -= 0.5; stepY += 0.5; }
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { stepX += 0.5; stepY -= 0.5; }
+
+      if (stepX !== 0 || stepY !== 0) {
+        avatar.targetGridX = Math.max(0.5, Math.min(roomWidth - 0.5, avatar.gridX + stepX));
+        avatar.targetGridY = Math.max(0.5, Math.min(roomDepth - 0.5, avatar.gridY + stepY));
+        avatar.isMoving = true;
+      }
+    });
+
+    let lastTime = performance.now();
+
+    function update(dt) {
+      if (avatar.isMoving) {
+        const dx = avatar.targetGridX - avatar.gridX;
+        const dy = avatar.targetGridY - avatar.gridY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 0.04) {
+          avatar.directionIndex = computeDirectionIndex(dx, dy);
+          const moveStep = Math.min(dist, avatar.speed * dt);
+          avatar.gridX += (dx / dist) * moveStep;
+          avatar.gridY += (dy / dist) * moveStep;
+        } else {
+          avatar.gridX = avatar.targetGridX;
+          avatar.gridY = avatar.targetGridY;
+          avatar.isMoving = false;
+        }
+      }
+
+      const avScreen = gridToScreen(avatar.gridX, avatar.gridY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+      const avDepth = calculateIsometricDepth(avScreen.screenX, avScreen.screenY, avatar.elevation);
+      const headings = ['SE', 'S', 'SW', 'W', 'NW', 'N', 'NE', 'E'];
+
+      hudGrid.textContent = `X: ${avatar.gridX.toFixed(2)}, Y: ${avatar.gridY.toFixed(2)}`;
+      hudScreen.textContent = `X: ${Math.round(avScreen.screenX)}, Y: ${Math.round(avScreen.screenY)}`;
+      hudElevation.textContent = avatar.elevation.toFixed(2);
+      hudDepth.textContent = Math.round(avDepth);
+      hudDirection.textContent = `${avatar.directionIndex} (${getDirectionYaw(avatar.directionIndex, 8).toFixed(1)}°)`;
+      hudHeading.textContent = headings[avatar.directionIndex] || 'SE';
+      hudStatus.textContent = avatar.isMoving ? 'NAVIGATING' : 'IDLE';
+      hudStatus.style.color = avatar.isMoving ? 'var(--accent-cyan)' : 'var(--accent-magenta)';
+    }
+
+    function renderFloorGrid() {
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.12)';
+      ctx.lineWidth = 1;
+
+      for (let x = 0; x <= roomWidth; x++) {
+        const start = gridToScreen(x, 0, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        const end = gridToScreen(x, roomDepth, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(start.screenX, start.screenY);
+        ctx.lineTo(end.screenX, end.screenY);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y <= roomDepth; y++) {
+        const start = gridToScreen(0, y, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        const end = gridToScreen(roomWidth, y, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        ctx.beginPath();
+        ctx.moveTo(start.screenX, start.screenY);
+        ctx.lineTo(end.screenX, end.screenY);
+        ctx.stroke();
+      }
+    }
+
+    function drawDimetricDiamond(cx, cy, w, h, fillStyle, strokeStyle) {
+      const hw = w / 2;
+      const hh = h / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - hh);
+      ctx.lineTo(cx + hw, cy);
+      ctx.lineTo(cx, cy + hh);
+      ctx.lineTo(cx - hw, cy);
+      ctx.closePath();
+
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+      }
+      if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.stroke();
+      }
+    }
+
+    function drawAvatarProcedural(screenX, screenY, dirIndex, p) {
+      ctx.save();
+      ctx.translate(screenX, screenY);
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 16, 8, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fill();
+
+      const yaw = getDirectionYaw(dirIndex, 8);
+      const faceAngle = (yaw * Math.PI) / 180;
+      const offsetX = Math.cos(faceAngle) * 3;
+
+      ctx.fillStyle = p.shoesColor;
+      ctx.fillRect(-8, -6, 6, 6);
+      ctx.fillRect(2, -6, 6, 6);
+
+      ctx.fillStyle = p.pantsColor;
+      ctx.fillRect(-7, -22, 5, 16);
+      ctx.fillRect(2, -22, 5, 16);
+      ctx.fillRect(-8, -26, 16, 6);
+
+      ctx.fillStyle = p.shirtColor;
+      ctx.fillRect(-9, -42, 18, 16);
+      ctx.fillStyle = p.skinColor;
+      ctx.fillRect(-12, -38, 4, 12);
+      ctx.fillRect(8, -38, 4, 12);
+
+      ctx.fillStyle = p.skinColor;
+      ctx.fillRect(-8 + offsetX * 0.4, -56, 16, 14);
+
+      ctx.fillStyle = p.hairColor;
+      ctx.fillRect(-9 + offsetX * 0.2, -62, 18, 8);
+      ctx.fillRect(-9, -58, 4, 8);
+      ctx.fillRect(5, -58, 4, 8);
+
+      if (dirIndex === 0 || dirIndex === 1 || dirIndex === 7) {
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(-3 + offsetX * 0.5, -51, 2, 2);
+        ctx.fillRect(2 + offsetX * 0.5, -51, 2, 2);
+      }
+
+      ctx.restore();
+    }
+
+    function drawFurnitureObject(furni, screenX, screenY) {
+      const tw = TILE_WIDTH * furni.width;
+      const th = TILE_HEIGHT * furni.depth;
+      const heightPx = 28;
+
+      ctx.save();
+      ctx.translate(screenX, screenY);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      drawDimetricDiamond(0, 0, tw, th, 'rgba(0, 0, 0, 0.35)', null);
+
+      ctx.beginPath();
+      ctx.moveTo(-tw / 2, 0);
+      ctx.lineTo(0, th / 2);
+      ctx.lineTo(0, th / 2 - heightPx);
+      ctx.lineTo(-tw / 2, -heightPx);
+      ctx.closePath();
+      ctx.fillStyle = furni.color;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(tw / 2, 0);
+      ctx.lineTo(0, th / 2);
+      ctx.lineTo(0, th / 2 - heightPx);
+      ctx.lineTo(tw / 2, -heightPx);
+      ctx.closePath();
+      ctx.fillStyle = furni.color;
+      ctx.globalAlpha = 0.70;
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.95;
+      drawDimetricDiamond(0, -heightPx, tw, th, furni.color, '#ffffff');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(furni.label, 0, -heightPx - 6);
+
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (currentRoomImage && currentRoomImage.complete && currentRoomImage.naturalWidth > 0) {
+        ctx.drawImage(currentRoomImage, 0, 0, canvas.width, canvas.height);
+      } else {
+        renderFloorGrid();
+      }
+
+      if (avatar.isMoving) {
+        const targetScreen = gridToScreen(avatar.targetGridX, avatar.targetGridY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        const avScreen = gridToScreen(avatar.gridX, avatar.gridY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+
+        ctx.beginPath();
+        ctx.moveTo(avScreen.screenX, avScreen.screenY);
+        ctx.lineTo(targetScreen.screenX, targetScreen.screenY);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawDimetricDiamond(targetScreen.screenX, targetScreen.screenY, TILE_WIDTH * 0.8, TILE_HEIGHT * 0.8, 'rgba(0, 240, 255, 0.25)', '#00f0ff');
+      }
+
+      const avScreen = gridToScreen(avatar.gridX, avatar.gridY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+      const avDepth = calculateIsometricDepth(avScreen.screenX, avScreen.screenY, avatar.elevation);
+
+      const renderQueue = [];
+
+      renderQueue.push({
+        type: 'avatar',
+        depth: avDepth,
+        screenX: avScreen.screenX,
+        screenY: avScreen.screenY
+      });
+
+      for (const furni of furnitureEntities) {
+        const furniScreen = gridToScreen(furni.gridX, furni.gridY, TILE_WIDTH, TILE_HEIGHT, originX, originY);
+        const furniDepth = calculateIsometricDepth(furniScreen.screenX, furniScreen.screenY, furni.elevation);
+        renderQueue.push({
+          type: 'furniture',
+          depth: furniDepth,
+          screenX: furniScreen.screenX,
+          screenY: furniScreen.screenY,
+          data: furni
+        });
+      }
+
+      renderQueue.sort((a, b) => a.depth - b.depth);
+
+      for (const item of renderQueue) {
+        if (item.type === 'avatar') {
+          const spriteImg = avatarSprites[avatar.directionIndex];
+          if (spriteImg && spriteImg.complete && spriteImg.naturalWidth > 0) {
+            const sprW = 64;
+            const sprH = 128;
+            ctx.drawImage(spriteImg, item.screenX - sprW / 2, item.screenY - sprH + 12, sprW, sprH);
+          } else {
+            drawAvatarProcedural(item.screenX, item.screenY, avatar.directionIndex, avatar.palette);
+          }
+        } else if (item.type === 'furniture') {
+          drawFurnitureObject(item.data, item.screenX, item.screenY);
+        }
+      }
+    }
+
+    function gameLoop(now) {
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

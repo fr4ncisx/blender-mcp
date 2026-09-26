@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Renders and generated outputs
+output/
+tests/output/
+test_ss/
+*.cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Blender temporary and backup files
+*.blend1
+*.blend@
+autosave.blend
+*.crash.txt
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Internal Agent Tracking and Rules
+odd/
+AGENTS.MD
+
+# Operating System files
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo

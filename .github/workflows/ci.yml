@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Build, Audit & Test (${{ matrix.os }} - Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript
+        run: pnpm run build
+
+      - name: Audit zero comments in source code
+        run: |
+          node -e "
+          import fs from 'node:fs';
+          import path from 'node:path';
+          function check(dir) {
+            let v = [];
+            for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+              const f = path.join(dir, e.name);
+              if (e.isDirectory()) {
+                if (!['node_modules', 'dist', '.git', 'output'].includes(e.name)) v.push(...check(f));
+              } else if (/\.(ts|js|mjs|py)$/.test(e.name)) {
+                fs.readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+                  const t = l.trim();
+                  if (t.startsWith('//') || (t.startsWith('#') && !t.startsWith('#!')) || t.startsWith('/*') || t.startsWith('*')) {
+                    v.push(f + ':' + (i + 1) + ': ' + t);
+                  }
+                });
+              }
+            }
+            return v;
+          }
+          const errs = [...check('server'), ...check('addon'), ...check('scripts'), ...check('tests')];
+          if (errs.length > 0) {
+            console.error('Comment violations detected:');
+            errs.forEach(e => console.error(e));
+            process.exit(1);
+          }
+          console.log('Zero comments audit passed.');
+          "
+
+      - name: Run unit test suite
+        run: pnpm run test:unit

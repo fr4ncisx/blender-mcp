@@ -1,0 +1,29 @@
+{
+  "name": "blender-iso-mcp",
+  "version": "0.9.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "clean": "node -e \"fs.rmSync('dist', {recursive: true, force: true})\"",
+    "build": "tsc",
+    "start": "node dist/presentation/mcp/server.js",
+    "test": "tsx --test --test-concurrency=1 tests/isometric-projection.test.ts tests/resolution-vo.test.ts tests/project-paths.test.ts tests/isometric-assets.test.ts tests/exporters.test.ts tests/avatar-pipeline.test.ts tests/world-blueprint.test.ts tests/asset-cache-manager.test.ts tests/app-config.test.ts tests/e2e-ai-blender.test.ts tests/social-room.test.ts tests/large-multilevel-room.test.ts tests/habbo-bar.test.ts tests/art-deco-lounge.test.ts tests/synthesize-world.test.ts",
+    "test:unit": "tsx --test tests/isometric-projection.test.ts tests/resolution-vo.test.ts tests/project-paths.test.ts tests/isometric-assets.test.ts tests/exporters.test.ts tests/avatar-pipeline.test.ts tests/world-blueprint.test.ts tests/asset-cache-manager.test.ts tests/app-config.test.ts",
+    "test:e2e": "tsx --test --test-concurrency=1 tests/e2e-ai-blender.test.ts tests/social-room.test.ts tests/large-multilevel-room.test.ts tests/habbo-bar.test.ts tests/art-deco-lounge.test.ts tests/synthesize-world.test.ts",
+    "test:blender": "node scripts/run-blender-tests.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

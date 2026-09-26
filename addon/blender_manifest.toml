@@ -1,0 +1,9 @@
+schema_version = "1.0.0"
+id = "blender_iso_mcp"
+version = "0.9.0"
+name = "Blender Isometric 2:1 MCP Bridge"
+tagline = "High-precision 2:1 dimetric isometric rendering bridge for MCP"
+maintainer = "MCP Dev"
+type = "add-on"
+blender_version_min = "5.0.0"
+license = ["SPDX:MIT"]
