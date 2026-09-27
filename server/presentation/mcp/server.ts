@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
   CallToolResult
 } from '@modelcontextprotocol/sdk/types.js';
+import { performance } from 'node:perf_hooks';
 
 import { SafePathSanitizer } from '../../infrastructure/storage/safe-path-sanitizer.js';
 import { UniversalAtlasExporter } from '../../infrastructure/exporters/universal-atlas-exporter.js';
@@ -14,6 +15,7 @@ import { PhaserDefoldExporter } from '../../infrastructure/exporters/phaser-defo
 import { WsBlenderClient } from '../../infrastructure/blender/ws-blender-client.js';
 import { IAssetExportAdapter } from '../../domain/contracts/asset-export-adapter.contract.js';
 import { AppConfig } from '../../infrastructure/config/app-config.js';
+import { TerminalLogger } from '../logging/terminal-logger.js';
 
 import {
   SCENE_SETUP_TOOL_NAME,
@@ -85,6 +87,18 @@ import {
   handleSynthesizeWorld,
   SynthesizeWorldInput
 } from './tools/synthesize-world.tool.js';
+
+const BLENDER_REQUIRING_TOOLS: ReadonlySet<string> = new Set([
+  SCENE_SETUP_TOOL_NAME,
+  TILE_GENERATOR_TOOL_NAME,
+  NPR_MATERIAL_TOOL_NAME,
+  TURNAROUND_RENDER_TOOL_NAME,
+  PASS_BAKER_TOOL_NAME,
+  INSPECT_SCENE_TOOL_NAME,
+  SOCIAL_ROOM_TOOL_NAME,
+  AVATAR_GENERATOR_TOOL_NAME,
+  SYNTHESIZE_WORLD_TOOL_NAME
+]);
 
 export function createServer(config?: AppConfig): Server {
   const effectiveConfig = config ?? AppConfig.load();
@@ -317,8 +331,19 @@ export function createServer(config?: AppConfig): Server {
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
+    const handlerStart = performance.now();
     const { name, arguments: args } = request.params;
     const safeArgs = (args ?? {}) as Record<string, unknown>;
+
+    if (!effectiveConfig.isBlenderInstalled && BLENDER_REQUIRING_TOOLS.has(name)) {
+      TerminalLogger.logToolError(name, 0, 'Blender not installed — tool requires a live Blender instance');
+      return {
+        content: [{ type: 'text', text: 'Blender is not installed or not found on this system. Install Blender 3.6+ and configure BLENDER_PATH.' }],
+        isError: true
+      };
+    }
+
+    TerminalLogger.logToolStart(name, safeArgs);
 
     let result: {
       readonly content: ReadonlyArray<
@@ -328,58 +353,66 @@ export function createServer(config?: AppConfig): Server {
       readonly isError?: boolean;
     };
 
-    switch (name) {
-      case SCENE_SETUP_TOOL_NAME:
-        result = await handleSceneSetup(bridge, safeArgs as unknown as SceneSetupInput);
-        break;
-      case TILE_GENERATOR_TOOL_NAME:
-        result = await handleTileGenerator(bridge, safeArgs as unknown as TileGeneratorInput);
-        break;
-      case NPR_MATERIAL_TOOL_NAME:
-        result = await handleNprMaterial(bridge, safeArgs as unknown as NprMaterialInput);
-        break;
-      case TURNAROUND_RENDER_TOOL_NAME:
-        result = await handleTurnaroundRender(bridge, exporters, safeArgs as unknown as TurnaroundRenderInput);
-        break;
-      case PASS_BAKER_TOOL_NAME:
-        result = await handlePassBaker(bridge, safeArgs as unknown as PassBakerInput);
-        break;
-      case INSPECT_SCENE_TOOL_NAME:
-        result = await handleInspectScene(bridge, safeArgs as unknown as InspectSceneInput);
-        break;
-      case SOCIAL_ROOM_TOOL_NAME:
-        result = await handleSocialRoom(bridge, safeArgs as unknown as SocialRoomInput);
-        break;
-      case ISOMETRIC_ASSET_BAKER_TOOL_NAME:
-        result = await handleIsometricAssetBaker(sanitizer, safeArgs as unknown as IsometricAssetBakerInput);
-        break;
-      case AVATAR_GENERATOR_TOOL_NAME:
-        result = await handleAvatarGenerator(bridge, sanitizer, safeArgs as unknown as AvatarGeneratorInput);
-        break;
-      case SYNTHESIZE_WORLD_TOOL_NAME:
-        result = await handleSynthesizeWorld(
-          bridge,
-          sanitizer,
-          cacheManager,
-          safeArgs as unknown as SynthesizeWorldInput
-        );
-        break;
-      default:
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Tool not found: ${name}`
-            }
-          ],
-          isError: true
-        };
+    try {
+      switch (name) {
+        case SCENE_SETUP_TOOL_NAME:
+          result = await handleSceneSetup(bridge, safeArgs as unknown as SceneSetupInput);
+          break;
+        case TILE_GENERATOR_TOOL_NAME:
+          result = await handleTileGenerator(bridge, safeArgs as unknown as TileGeneratorInput);
+          break;
+        case NPR_MATERIAL_TOOL_NAME:
+          result = await handleNprMaterial(bridge, safeArgs as unknown as NprMaterialInput);
+          break;
+        case TURNAROUND_RENDER_TOOL_NAME:
+          result = await handleTurnaroundRender(bridge, exporters, safeArgs as unknown as TurnaroundRenderInput);
+          break;
+        case PASS_BAKER_TOOL_NAME:
+          result = await handlePassBaker(bridge, safeArgs as unknown as PassBakerInput);
+          break;
+        case INSPECT_SCENE_TOOL_NAME:
+          result = await handleInspectScene(bridge, safeArgs as unknown as InspectSceneInput);
+          break;
+        case SOCIAL_ROOM_TOOL_NAME:
+          result = await handleSocialRoom(bridge, safeArgs as unknown as SocialRoomInput);
+          break;
+        case ISOMETRIC_ASSET_BAKER_TOOL_NAME:
+          result = await handleIsometricAssetBaker(sanitizer, safeArgs as unknown as IsometricAssetBakerInput);
+          break;
+        case AVATAR_GENERATOR_TOOL_NAME:
+          result = await handleAvatarGenerator(bridge, sanitizer, safeArgs as unknown as AvatarGeneratorInput);
+          break;
+        case SYNTHESIZE_WORLD_TOOL_NAME:
+          result = await handleSynthesizeWorld(
+            bridge,
+            sanitizer,
+            cacheManager,
+            safeArgs as unknown as SynthesizeWorldInput
+          );
+          break;
+        default:
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Tool not found: ${name}`
+              }
+            ],
+            isError: true
+          };
+      }
+    } catch (err: unknown) {
+      const duration = Math.round(performance.now() - handlerStart);
+      TerminalLogger.logToolError(name, duration, err instanceof Error ? err.message : String(err));
+      return {
+        content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }],
+        isError: true
+      };
     }
 
-    return {
-      content: [...result.content],
-      isError: result.isError
-    };
+    const successDuration = Math.round(performance.now() - handlerStart);
+    TerminalLogger.logToolSuccess(name, successDuration);
+    return { content: [...result.content], isError: result.isError };
   });
 
   return server;
@@ -387,9 +420,16 @@ export function createServer(config?: AppConfig): Server {
 
 async function main(): Promise<void> {
   const config = AppConfig.load(process.argv.slice(2));
+
+  if (config.failFast && !config.isBlenderInstalled) {
+    TerminalLogger.printFailFastBanner(config);
+    process.exit(1);
+  }
+
   const server = createServer(config);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  TerminalLogger.printStartupBanner(config, 10);
 }
 
 if (process.argv[1]?.endsWith('server.js') || process.argv[1]?.endsWith('server.ts')) {

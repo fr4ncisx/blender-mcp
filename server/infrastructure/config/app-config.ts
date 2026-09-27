@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 export interface AppConfigParams {
   readonly blenderHost: string;
@@ -8,6 +9,8 @@ export interface AppConfigParams {
   readonly authToken?: string;
   readonly timeoutMs: number;
   readonly wsUrl: string;
+  readonly isBlenderInstalled: boolean;
+  readonly failFast: boolean;
 }
 
 export class AppConfig {
@@ -17,6 +20,8 @@ export class AppConfig {
   public readonly authToken?: string;
   public readonly timeoutMs: number;
   public readonly wsUrl: string;
+  public readonly isBlenderInstalled: boolean;
+  public readonly failFast: boolean;
 
   constructor(params: AppConfigParams) {
     this.blenderHost = params.blenderHost;
@@ -25,6 +30,8 @@ export class AppConfig {
     this.authToken = params.authToken;
     this.timeoutMs = params.timeoutMs;
     this.wsUrl = params.wsUrl;
+    this.isBlenderInstalled = params.isBlenderInstalled;
+    this.failFast = params.failFast;
     Object.freeze(this);
   }
 
@@ -69,13 +76,23 @@ export class AppConfig {
 
     const wsUrl = `ws://${host}:${port}/blender-rpc`;
 
+    const failFastEnv = env['BLENDER_FAIL_FAST'];
+    const failFastFromEnv =
+      failFastEnv === 'true' || failFastEnv === '1' || failFastEnv === 'yes';
+    const failFast = failFastFromEnv || cliValues['fail-fast'] === 'true';
+
+    const isBlenderInstalled =
+      typeof blenderPath === 'string' && fs.existsSync(blenderPath);
+
     return new AppConfig({
       blenderHost: host,
       blenderPort: port,
       blenderPath,
       authToken,
       timeoutMs,
-      wsUrl
+      wsUrl,
+      isBlenderInstalled,
+      failFast
     });
   }
 
@@ -111,6 +128,10 @@ export class AppConfig {
         if (flag === 'h') mappedKey = 'host';
         if (flag === 'b') mappedKey = 'blender';
         if (flag === 't') mappedKey = 'token';
+        if (flag === 'f') {
+          result['fail-fast'] = 'true';
+          continue;
+        }
 
         if (mappedKey && next && !next.startsWith('-')) {
           result[mappedKey] = next.trim();
@@ -205,7 +226,24 @@ export class AppConfig {
       if (fs.existsSync(macPath)) {
         return macPath;
       }
+    } else {
+      const linuxCandidates = [
+        '/usr/bin/blender',
+        '/usr/local/bin/blender',
+        '/snap/bin/blender',
+        '/var/lib/flatpak/exports/bin/org.blender.Blender'
+      ];
+      for (const candidate of linuxCandidates) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
     }
+
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const result = spawnSync(whichCmd, ['blender'], { encoding: 'utf-8' });
+    if (result.status === 0 && result.stdout.trim().length > 0) {
+      return result.stdout.trim().split('\n')[0]?.trim();
+    }
+
     return undefined;
   }
 }
